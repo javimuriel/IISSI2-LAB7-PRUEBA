@@ -13,14 +13,42 @@ import * as yup from 'yup'
 import { ErrorMessage, Formik } from 'formik'
 import TextError from '../../components/TextError'
 
-export default function CreateProductScreen({ navigation, route }) {
+export default function CreateProductScreen ({ navigation, route }) {
   const [open, setOpen] = useState(false)
   const [productCategories, setProductCategories] = useState([])
+  const [backendErrors, setBackendErrors] = useState([])
 
   const initialProductValues = { name: null, description: null, price: null, order: null, restaurantId: route.params.id, productCategoryId: null, availability: true }
 
+  const validationSchema = yup.object().shape({
+    name: yup
+      .string()
+      .max(255, 'Name too long')
+      .required('Name is required'),
+    description: yup
+      .string()
+      .max(255, 'Address too long'),
+    price: yup
+      .number()
+      .positive('Price has to be positive')
+      .required('Price is required'),
+    order: yup
+      .number()
+      .nullable()
+      .positive('Order has to be positive')
+      .integer(),
+    productCategoryId: yup
+      .number()
+      .positive()
+      .integer()
+      .required('Product category is required'),
+    availability: yup
+      .boolean()
+      .required('Availability is required')
+  })
+
   useEffect(() => {
-    async function fetchProductCategories() {
+    async function fetchProductCategories () {
       try {
         const fetchedProductCategories = await getProductCategories()
         const fetchedProductCategoriesReshaped = fetchedProductCategories.map((e) => {
@@ -55,10 +83,28 @@ export default function CreateProductScreen({ navigation, route }) {
     }
   }
 
+  const createProduct = async (values) => {
+    setBackendErrors([])
+    try {
+      const createdProduct = await create(values)
+      showMessage({
+        message: `Product ${createdProduct.name} created successfully`,
+        type: 'success',
+        style: GlobalStyles.flashStyle,
+        titleStyle: GlobalStyles.flashTextStyle
+      })
+      navigation.navigate('RestaurantDetailScreen', { dirty: true, id: route.params.id })
+    } catch (error) {
+      console.log(error)
+      setBackendErrors(error.errors)
+    }
+  }
 
   return (
     <Formik
-      initialValues={initialProductValues}>
+      validationSchema={validationSchema}
+      initialValues={initialProductValues}
+      onSubmit={createProduct}>
       {({ handleSubmit, setFieldValue, values }) => (
         <ScrollView>
           <View style={{ alignItems: 'center' }}>
@@ -120,9 +166,13 @@ export default function CreateProductScreen({ navigation, route }) {
                 <TextRegular>Product image: </TextRegular>
                 <Image style={styles.image} source={values.image ? { uri: values.image.assets[0].uri } : defaultProductImage} />
               </Pressable>
+              <ErrorMessage name={'restaurantCategoryId'} render={msg => <TextError>{msg}</TextError> }/>
+              {backendErrors &&
+                backendErrors.map((error, index) => <TextError key={index}>{error.msg}</TextError>)
+              }
 
               <Pressable
-                onPress={ () => console.log('Button pressed') }
+                onPress={handleSubmit}
                 style={({ pressed }) => [
                   {
                     backgroundColor: pressed

@@ -14,15 +14,51 @@ import { showMessage } from 'react-native-flash-message'
 import { ErrorMessage, Formik } from 'formik'
 import TextError from '../../components/TextError'
 
-export default function CreateRestaurantScreen({ navigation }) {
+export default function CreateRestaurantScreen ({ navigation }) {
   const [open, setOpen] = useState(false)
   const [restaurantCategories, setRestaurantCategories] = useState([])
-
+  const [backendErrors, setBackendErrors] = useState([])
 
   const initialRestaurantValues = { name: null, description: null, address: null, postalCode: null, url: null, shippingCosts: null, email: null, phone: null, restaurantCategoryId: null }
 
+  const validationSchema = yup.object().shape({
+    name: yup
+      .string()
+      .max(255, 'Name too long')
+      .required('Name is required'),
+    address: yup
+      .string()
+      .max(255, 'Address too long')
+      .required('Address is required'),
+    postalCode: yup
+      .string()
+      .max(255, 'Postal code too long')
+      .required('Postal code is required'),
+    url: yup
+      .string()
+      .nullable()
+      .url('Please enter a valid url'),
+    shippingCosts: yup
+      .number()
+      .positive('Please provide a valid shipping cost value')
+      .required('Shipping costs value is required'),
+    email: yup
+      .string()
+      .nullable()
+      .email('Please enter a valid email'),
+    phone: yup
+      .string()
+      .nullable()
+      .max(255, 'Phone too long'),
+    restaurantCategoryId: yup
+      .number()
+      .positive()
+      .integer()
+      .required('Restaurant category is required')
+  })
+
   useEffect(() => {
-    async function fetchRestaurantCategories() {
+    async function fetchRestaurantCategories () {
       try {
         const fetchedRestaurantCategories = await getRestaurantCategories()
         const fetchedRestaurantCategoriesReshaped = fetchedRestaurantCategories.map((e) => {
@@ -69,9 +105,28 @@ export default function CreateRestaurantScreen({ navigation }) {
     }
   }
 
+  const createRestaurant = async (values) => {
+    setBackendErrors([])
+    try {
+      const createdRestaurant = await create(values)
+      showMessage({
+        message: `Restaurant ${createdRestaurant.name} succesfully created`,
+        type: 'success',
+        style: GlobalStyles.flashStyle,
+        titleStyle: GlobalStyles.flashTextStyle
+      })
+      navigation.navigate('RestaurantsScreen', { dirty: true })
+    } catch (error) {
+      console.log(error)
+      setBackendErrors(error.errors)
+    }
+  }
+
   return (
     <Formik
-      initialValues={initialRestaurantValues}>
+      validationSchema={validationSchema}
+      initialValues={initialRestaurantValues}
+      onSubmit={createRestaurant}>
       {({ handleSubmit, setFieldValue, values }) => (
         <ScrollView>
           <View style={{ alignItems: 'center' }}>
@@ -123,6 +178,7 @@ export default function CreateRestaurantScreen({ navigation }) {
                 style={{ backgroundColor: GlobalStyles.brandBackground }}
                 dropDownStyle={{ backgroundColor: '#fafafa' }}
               />
+              <ErrorMessage name={'restaurantCategoryId'} render={msg => <TextError>{msg}</TextError> }/>
 
               <Pressable onPress={() =>
                 pickImage(
@@ -136,6 +192,7 @@ export default function CreateRestaurantScreen({ navigation }) {
                 <TextRegular>Logo: </TextRegular>
                 <Image style={styles.image} source={values.logo ? { uri: values.logo.assets[0].uri } : restaurantLogo} />
               </Pressable>
+              <ErrorMessage name={'logo'} render={msg => <TextError>{msg}</TextError> }/>
 
               <Pressable onPress={() =>
                 pickImage(
@@ -149,9 +206,12 @@ export default function CreateRestaurantScreen({ navigation }) {
                 <TextRegular>Hero image: </TextRegular>
                 <Image style={styles.image} source={values.heroImage ? { uri: values.heroImage.assets[0].uri } : restaurantBackground} />
               </Pressable>
-
+              <ErrorMessage name={'heroImage'} render={msg => <TextError>{msg}</TextError> }/>
+              {backendErrors &&
+                backendErrors.map((error, index) => <TextError key={index}>{error.msg}</TextError>)
+              }
               <Pressable
-                onPress={() => console.log('Submit pressed')}
+                onPress={handleSubmit}
                 style={({ pressed }) => [
                   {
                     backgroundColor: pressed

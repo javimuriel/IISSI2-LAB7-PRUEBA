@@ -1,14 +1,14 @@
 import { get, post } from './helpers/ApiRequestsHelper'
 
-function getDetail(id) {
+function getDetail (id) {
   return get(`products/${id}`)
 }
 
-function getProductCategories() {
+function getProductCategories () {
   return get('productCategories')
 }
 
-function create(data) {
+function create (data) {
   return post('/products/', data)
 }
 
